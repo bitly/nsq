@@ -202,7 +202,7 @@ func (p *protocolV2) Exec(client *clientV2, params [][]byte) ([]byte, error) {
 
 func (p *protocolV2) messagePump(client *clientV2, startedChan chan bool) {
 	var err error
-	var memoryMsgChan chan *Message
+	var zoneMsgChan, regionMsgChan, memoryMsgChan chan *Message
 	var backendMsgChan <-chan []byte
 	var subChannel *Channel
 	// NOTE: `flusherChan` is used to bound message latency for
@@ -210,6 +210,7 @@ func (p *protocolV2) messagePump(client *clientV2, startedChan chan bool) {
 	// with >1 clients having >1 RDY counts
 	var flusherChan <-chan time.Time
 	var sampleRate int32
+	var regionLocal, zoneLocal bool
 
 	subEventChan := client.SubEventChan
 	identifyEventChan := client.IdentifyEventChan
@@ -231,9 +232,13 @@ func (p *protocolV2) messagePump(client *clientV2, startedChan chan bool) {
 	close(startedChan)
 
 	for {
+		var b []byte
+		var msg *Message
 		if subChannel == nil || !client.IsReadyForMessages() {
 			// the client is not ready to receive messages...
 			memoryMsgChan = nil
+			regionMsgChan = nil
+			zoneMsgChan = nil
 			backendMsgChan = nil
 			flusherChan = nil
 			// force flush
@@ -248,12 +253,24 @@ func (p *protocolV2) messagePump(client *clientV2, startedChan chan bool) {
 			// last iteration we flushed...
 			// do not select on the flusher ticker channel
 			memoryMsgChan = subChannel.memoryMsgChan
+			if zoneLocal {
+				zoneMsgChan = subChannel.zoneLocalMsgChan
+			}
+			if regionLocal {
+				regionMsgChan = subChannel.regionLocalMsgChan
+			}
 			backendMsgChan = subChannel.backend.ReadChan()
 			flusherChan = nil
 		} else {
 			// we're buffered (if there isn't any more data we should flush)...
 			// select on the flusher ticker channel, too
 			memoryMsgChan = subChannel.memoryMsgChan
+			if zoneLocal {
+				zoneMsgChan = subChannel.zoneLocalMsgChan
+			}
+			if regionLocal {
+				regionMsgChan = subChannel.regionLocalMsgChan
+			}
 			backendMsgChan = subChannel.backend.ReadChan()
 			flusherChan = outputBufferTicker.C
 		}
@@ -295,36 +312,37 @@ func (p *protocolV2) messagePump(client *clientV2, startedChan chan bool) {
 			}
 
 			msgTimeout = identifyData.MsgTimeout
+			if identifyData.TopologyZone == p.nsqd.getOpts().TopologyZone {
+				zoneLocal = true
+			}
+			if identifyData.TopologyRegion == p.nsqd.getOpts().TopologyRegion {
+				regionLocal = true
+			}
 		case <-heartbeatChan:
 			err = p.Send(client, frameTypeResponse, heartbeatBytes)
 			if err != nil {
 				goto exit
 			}
-		case b := <-backendMsgChan:
-			if sampleRate > 0 && rand.Int31n(100) > sampleRate {
-				continue
-			}
-
-			msg, err := decodeMessage(b)
+		case b = <-backendMsgChan:
+			// decodeMessage then handle 'msg'
+		case msg = <-zoneMsgChan:
+		case msg = <-regionMsgChan:
+		case msg = <-memoryMsgChan:
+		case <-client.ExitChan:
+			goto exit
+		}
+		if len(b) != 0 {
+			msg, err = decodeMessage(b)
 			if err != nil {
 				p.nsqd.logf(LOG_ERROR, "failed to decode message - %s", err)
 				continue
 			}
-			msg.Attempts++
-
-			subChannel.StartInFlightTimeout(msg, client.ID, msgTimeout)
-			client.SendingMessage()
-			err = p.SendMessage(client, msg)
-			if err != nil {
-				goto exit
-			}
-			flushed = false
-		case msg := <-memoryMsgChan:
+		}
+		if msg != nil {
 			if sampleRate > 0 && rand.Int31n(100) > sampleRate {
 				continue
 			}
 			msg.Attempts++
-
 			subChannel.StartInFlightTimeout(msg, client.ID, msgTimeout)
 			client.SendingMessage()
 			err = p.SendMessage(client, msg)
@@ -332,9 +350,8 @@ func (p *protocolV2) messagePump(client *clientV2, startedChan chan bool) {
 				goto exit
 			}
 			flushed = false
-		case <-client.ExitChan:
-			goto exit
 		}
+
 	}
 
 exit:

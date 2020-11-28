@@ -48,9 +48,11 @@ type Channel struct {
 
 	backend BackendQueue
 
-	memoryMsgChan chan *Message
-	exitFlag      int32
-	exitMutex     sync.RWMutex
+	zoneLocalMsgChan   chan *Message
+	regionLocalMsgChan chan *Message
+	memoryMsgChan      chan *Message
+	exitFlag           int32
+	exitMutex          sync.RWMutex
 
 	// state tracking
 	clients        map[int64]Consumer
@@ -84,6 +86,14 @@ func NewChannel(topicName string, channelName string, nsqd *NSQD,
 		nsqd:           nsqd,
 		ephemeral:      strings.HasSuffix(channelName, "#ephemeral"),
 	}
+
+	if nsqd.getOpts().TopologyRegion != "" {
+		c.regionLocalMsgChan = make(chan *Message, 0)
+	}
+	if nsqd.getOpts().TopologyZone != "" {
+		c.zoneLocalMsgChan = make(chan *Message, 0)
+	}
+
 	// avoid mem-queue if size == 0 for more consistent ordering
 	if nsqd.getOpts().MemQueueSize > 0 || c.ephemeral {
 		c.memoryMsgChan = make(chan *Message, nsqd.getOpts().MemQueueSize)
@@ -304,15 +314,26 @@ func (c *Channel) PutMessage(m *Message) error {
 
 func (c *Channel) put(m *Message) error {
 	select {
-	case c.memoryMsgChan <- m:
+	case c.zoneLocalMsgChan <- m:
+		return nil
 	default:
-		err := writeMessageToBackend(m, c.backend)
-		c.nsqd.SetHealth(err)
-		if err != nil {
-			c.nsqd.logf(LOG_ERROR, "CHANNEL(%s): failed to write message to backend - %s",
-				c.name, err)
-			return err
-		}
+	}
+	select {
+	case c.regionLocalMsgChan <- m:
+		return nil
+	default:
+	}
+	select {
+	case c.memoryMsgChan <- m:
+		return nil
+	default:
+	}
+	err := writeMessageToBackend(m, c.backend)
+	c.nsqd.SetHealth(err)
+	if err != nil {
+		c.nsqd.logf(LOG_ERROR, "CHANNEL(%s): failed to write message to backend - %s",
+			c.name, err)
+		return err
 	}
 	return nil
 }
