@@ -39,6 +39,8 @@ type identifyDataV2 struct {
 	SampleRate          int32  `json:"sample_rate"`
 	UserAgent           string `json:"user_agent"`
 	MsgTimeout          int    `json:"msg_timeout"`
+	TopologyRegion      string `json:"topology_region"`
+	TopologyZone        string `json:"topology_zone"`
 }
 
 type identifyEvent struct {
@@ -46,6 +48,8 @@ type identifyEvent struct {
 	HeartbeatInterval   time.Duration
 	SampleRate          int32
 	MsgTimeout          time.Duration
+	TopologyRegion      string
+	TopologyZone        string
 }
 
 type PubCount struct {
@@ -72,6 +76,8 @@ type ClientV2Stats struct {
 	Authed          bool   `json:"authed,omitempty"`
 	AuthIdentity    string `json:"auth_identity,omitempty"`
 	AuthIdentityURL string `json:"auth_identity_url,omitempty"`
+	TopologyZone    string `json:"topology_zone"`
+	TopologyRegion  string `json:"topology_region"`
 
 	PubCounts []PubCount `json:"pub_counts,omitempty"`
 
@@ -161,8 +167,10 @@ type clientV2 struct {
 	ReadyStateChan chan int
 	ExitChan       chan int
 
-	ClientID string
-	Hostname string
+	ClientID       string
+	Hostname       string
+	TopologyRegion string
+	TopologyZone   string
 
 	SampleRate int32
 
@@ -244,6 +252,8 @@ func (c *clientV2) Identify(data identifyDataV2) error {
 	c.ClientID = data.ClientID
 	c.Hostname = data.Hostname
 	c.UserAgent = data.UserAgent
+	c.TopologyRegion = data.TopologyRegion
+	c.TopologyZone = data.TopologyZone
 	c.metaLock.Unlock()
 
 	err := c.SetHeartbeatInterval(data.HeartbeatInterval)
@@ -271,6 +281,8 @@ func (c *clientV2) Identify(data identifyDataV2) error {
 		HeartbeatInterval:   c.HeartbeatInterval,
 		SampleRate:          c.SampleRate,
 		MsgTimeout:          c.MsgTimeout,
+		TopologyRegion:      c.TopologyRegion,
+		TopologyZone:        c.TopologyZone,
 	}
 
 	// update the client's message pump
@@ -287,6 +299,8 @@ func (c *clientV2) Stats(topicName string) ClientStats {
 	clientID := c.ClientID
 	hostname := c.Hostname
 	userAgent := c.UserAgent
+	topologyZone := c.TopologyZone
+	topologyRegion := c.TopologyRegion
 	var identity string
 	var identityURL string
 	if c.AuthState != nil {
@@ -326,6 +340,8 @@ func (c *clientV2) Stats(topicName string) ClientStats {
 		AuthIdentity:    identity,
 		AuthIdentityURL: identityURL,
 		PubCounts:       pubCounts,
+		TopologyZone:    topologyZone,
+		TopologyRegion:  topologyRegion,
 	}
 	if stats.TLS {
 		p := prettyConnectionState{c.tlsConn.ConnectionState()}

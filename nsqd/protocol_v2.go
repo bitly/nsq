@@ -422,6 +422,8 @@ func (p *protocolV2) IDENTIFY(client *clientV2, params [][]byte) ([]byte, error)
 		AuthRequired        bool   `json:"auth_required"`
 		OutputBufferSize    int    `json:"output_buffer_size"`
 		OutputBufferTimeout int64  `json:"output_buffer_timeout"`
+		TopologyRegion      string `json:"topology_region"`
+		TopologyZone        string `json:"topology_zone"`
 	}{
 		MaxRdyCount:         p.nsqd.getOpts().MaxRdyCount,
 		Version:             version.Binary,
@@ -436,6 +438,8 @@ func (p *protocolV2) IDENTIFY(client *clientV2, params [][]byte) ([]byte, error)
 		AuthRequired:        p.nsqd.IsAuthEnabled(),
 		OutputBufferSize:    client.OutputBufferSize,
 		OutputBufferTimeout: int64(client.OutputBufferTimeout / time.Millisecond),
+		TopologyRegion:      p.nsqd.getOpts().TopologyRegion,
+		TopologyZone:        p.nsqd.getOpts().TopologyZone,
 	})
 	if err != nil {
 		return nil, protocol.NewFatalClientErr(err, "E_IDENTIFY_FAILED", "IDENTIFY failed "+err.Error())

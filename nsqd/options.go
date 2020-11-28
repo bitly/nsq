@@ -29,6 +29,8 @@ type Options struct {
 	AuthHTTPAddresses        []string      `flag:"auth-http-address" cfg:"auth_http_addresses"`
 	HTTPClientConnectTimeout time.Duration `flag:"http-client-connect-timeout" cfg:"http_client_connect_timeout"`
 	HTTPClientRequestTimeout time.Duration `flag:"http-client-request-timeout" cfg:"http_client_request_timeout"`
+	TopologyRegion           string        `flag:"topology-region"`
+	TopologyZone             string        `flag:"topology-zone"`
 
 	// diskqueue options
 	DataPath        string        `flag:"data-path"`
