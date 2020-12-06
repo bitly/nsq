@@ -312,10 +312,11 @@ func (p *protocolV2) messagePump(client *clientV2, startedChan chan bool) {
 			}
 
 			msgTimeout = identifyData.MsgTimeout
-			if identifyData.TopologyZone == p.nsqd.getOpts().TopologyZone {
+			isToplogyAware := p.nsqd.getOpts().HasExperiment(TopologyAwareConsumption)
+			if identifyData.TopologyZone == p.nsqd.getOpts().TopologyZone && isToplogyAware {
 				zoneLocal = true
 			}
-			if identifyData.TopologyRegion == p.nsqd.getOpts().TopologyRegion {
+			if identifyData.TopologyRegion == p.nsqd.getOpts().TopologyRegion && isToplogyAware {
 				regionLocal = true
 			}
 		case <-heartbeatChan:

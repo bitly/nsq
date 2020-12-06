@@ -48,11 +48,12 @@ type Channel struct {
 
 	backend BackendQueue
 
-	zoneLocalMsgChan   chan *Message
-	regionLocalMsgChan chan *Message
-	memoryMsgChan      chan *Message
-	exitFlag           int32
-	exitMutex          sync.RWMutex
+	topologyAwareConsumption bool
+	zoneLocalMsgChan         chan *Message
+	regionLocalMsgChan       chan *Message
+	memoryMsgChan            chan *Message
+	exitFlag                 int32
+	exitMutex                sync.RWMutex
 
 	// state tracking
 	clients        map[int64]Consumer
@@ -78,13 +79,14 @@ func NewChannel(topicName string, channelName string, nsqd *NSQD,
 	deleteCallback func(*Channel)) *Channel {
 
 	c := &Channel{
-		topicName:      topicName,
-		name:           channelName,
-		memoryMsgChan:  nil,
-		clients:        make(map[int64]Consumer),
-		deleteCallback: deleteCallback,
-		nsqd:           nsqd,
-		ephemeral:      strings.HasSuffix(channelName, "#ephemeral"),
+		topicName:                topicName,
+		name:                     channelName,
+		memoryMsgChan:            nil,
+		clients:                  make(map[int64]Consumer),
+		deleteCallback:           deleteCallback,
+		nsqd:                     nsqd,
+		ephemeral:                strings.HasSuffix(channelName, "#ephemeral"),
+		topologyAwareConsumption: nsqd.getOpts().HasExperiment(TopologyAwareConsumption),
 	}
 
 	if nsqd.getOpts().TopologyRegion != "" {
@@ -313,15 +315,17 @@ func (c *Channel) PutMessage(m *Message) error {
 }
 
 func (c *Channel) put(m *Message) error {
-	select {
-	case c.zoneLocalMsgChan <- m:
-		return nil
-	default:
-	}
-	select {
-	case c.regionLocalMsgChan <- m:
-		return nil
-	default:
+	if c.topologyAwareConsumption {
+		select {
+		case c.zoneLocalMsgChan <- m:
+			return nil
+		default:
+		}
+		select {
+		case c.regionLocalMsgChan <- m:
+			return nil
+		default:
+		}
 	}
 	select {
 	case c.memoryMsgChan <- m:

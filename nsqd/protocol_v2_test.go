@@ -211,6 +211,7 @@ func TestMultipleConsumerV2(t *testing.T) {
 // if it's message pump is waiting
 func TestSameZoneConsumerV2(t *testing.T) {
 	opts := NewOptions()
+	opts.Experiments = []string{string(TopologyAwareConsumption)}
 	opts.Logger = test.NewTestLogger(t)
 	opts.ClientTimeout = 60 * time.Second
 	opts.TopologyRegion = "region"

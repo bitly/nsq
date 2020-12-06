@@ -198,5 +198,12 @@ func nsqdFlagSet(opts *nsqd.Options) *flag.FlagSet {
 	flagSet.Int("max-deflate-level", opts.MaxDeflateLevel, "max deflate compression level a client can negotiate (> values == > nsqd CPU usage)")
 	flagSet.Bool("snappy", opts.SnappyEnabled, "enable snappy feature negotiation (client compression)")
 
+	experiments := app.StringArray{}
+	var validExperiments []string
+	for _, e := range nsqd.AllExperiments {
+		validExperiments = append(validExperiments, fmt.Sprintf("'%s'", string(e)))
+	}
+	flagSet.Var(&experiments, "enable-experiment", fmt.Sprintf("enable experimental feature (may be given multiple times) (valid options: %s)", strings.Join(validExperiments, ", ")))
+
 	return flagSet
 }

@@ -86,6 +86,28 @@ type Options struct {
 	DeflateEnabled  bool `flag:"deflate"`
 	MaxDeflateLevel int  `flag:"max-deflate-level"`
 	SnappyEnabled   bool `flag:"snappy"`
+
+	// experimental features
+	Experiments []string `flag:"enable-experiment" cfg:"enable_experiment"`
+}
+
+type Experiment string
+
+const (
+	TopologyAwareConsumption Experiment = "topology-aware-consumption"
+)
+
+var AllExperiments = []Experiment{
+	TopologyAwareConsumption,
+}
+
+func (o Options) HasExperiment(e Experiment) bool {
+	for _, v := range o.Experiments {
+		if string(e) == v {
+			return true
+		}
+	}
+	return false
 }
 
 func NewOptions() *Options {
