@@ -352,6 +352,8 @@ func (c *ClusterInfo) GetNSQDProducers(nsqdHTTPAddrs []string) (Producers, error
 		Hostname         string `json:"hostname"`
 		HTTPPort         int    `json:"http_port"`
 		TCPPort          int    `json:"tcp_port"`
+		TopologyZone     string `json:"topology_zone,omitempty"`
+		TopologyRegion   string `json:"topology_region,omitempty"`
 	}
 
 	type statsRespType struct {
@@ -409,6 +411,8 @@ func (c *ClusterInfo) GetNSQDProducers(nsqdHTTPAddrs []string) (Producers, error
 				HTTPPort:         infoResp.HTTPPort,
 				TCPPort:          infoResp.TCPPort,
 				Topics:           producerTopics,
+				TopologyZone:     infoResp.TopologyZone,
+				TopologyRegion:   infoResp.TopologyRegion,
 			})
 		}(addr)
 	}
@@ -437,6 +441,8 @@ func (c *ClusterInfo) GetNSQDTopicProducers(topic string, nsqdHTTPAddrs []string
 		Hostname         string `json:"hostname"`
 		HTTPPort         int    `json:"http_port"`
 		TCPPort          int    `json:"tcp_port"`
+		TopologyZone     string `json:"topology_zone,omitempty"`
+		TopologyRegion   string `json:"topology_region,omitempty"`
 	}
 
 	type statsRespType struct {
@@ -508,6 +514,8 @@ func (c *ClusterInfo) GetNSQDTopicProducers(topic string, nsqdHTTPAddrs []string
 						HTTPPort:         infoResp.HTTPPort,
 						TCPPort:          infoResp.TCPPort,
 						Topics:           producerTopics,
+						TopologyZone:     infoResp.TopologyZone,
+						TopologyRegion:   infoResp.TopologyRegion,
 					})
 					lock.Unlock()
 
@@ -607,6 +615,8 @@ func (c *ClusterInfo) GetNSQDStats(producers Producers,
 					}
 					for _, c := range channel.Clients {
 						c.Node = addr
+						c.NodeTopologyRegion = p.TopologyRegion
+						c.NodeTopologyZone = p.TopologyZone
 					}
 					channelStats.Add(channel)
 				}

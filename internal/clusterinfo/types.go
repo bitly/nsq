@@ -30,6 +30,8 @@ type Producer struct {
 	TCPPort          int            `json:"tcp_port"`
 	HTTPPort         int            `json:"http_port"`
 	Version          string         `json:"version"`
+	TopologyZone     string         `json:"topology_zone,omitempty"`
+	TopologyRegion   string         `json:"topology_region,omitempty"`
 	VersionObj       semver.Version `json:"-"`
 	Topics           ProducerTopics `json:"topics"`
 	OutOfDate        bool           `json:"out_of_date"`
@@ -46,6 +48,8 @@ func (p *Producer) UnmarshalJSON(b []byte) error {
 		Version          string   `json:"version"`
 		Topics           []string `json:"topics"`
 		Tombstoned       []bool   `json:"tombstones"`
+		TopologyZone     string   `json:"topology_zone,omitempty"`
+		TopologyRegion   string   `json:"topology_region,omitempty"`
 	}
 	if err := json.Unmarshal(b, &r); err != nil {
 		return err
@@ -57,6 +61,8 @@ func (p *Producer) UnmarshalJSON(b []byte) error {
 		TCPPort:          r.TCPPort,
 		HTTPPort:         r.HTTPPort,
 		Version:          r.Version,
+		TopologyZone:     r.TopologyZone,
+		TopologyRegion:   r.TopologyRegion,
 	}
 	for i, t := range r.Topics {
 		p.Topics = append(p.Topics, ProducerTopic{Topic: t, Tombstoned: r.Tombstoned[i]})
@@ -189,25 +195,29 @@ func (c *ChannelStats) Add(a *ChannelStats) {
 }
 
 type ClientStats struct {
-	Node              string        `json:"node"`
-	RemoteAddress     string        `json:"remote_address"`
-	Version           string        `json:"version"`
-	ClientID          string        `json:"client_id"`
-	Hostname          string        `json:"hostname"`
-	UserAgent         string        `json:"user_agent"`
-	ConnectTs         int64         `json:"connect_ts"`
-	ConnectedDuration time.Duration `json:"connected"`
-	InFlightCount     int           `json:"in_flight_count"`
-	ReadyCount        int           `json:"ready_count"`
-	FinishCount       int64         `json:"finish_count"`
-	RequeueCount      int64         `json:"requeue_count"`
-	MessageCount      int64         `json:"message_count"`
-	SampleRate        int32         `json:"sample_rate"`
-	Deflate           bool          `json:"deflate"`
-	Snappy            bool          `json:"snappy"`
-	Authed            bool          `json:"authed"`
-	AuthIdentity      string        `json:"auth_identity"`
-	AuthIdentityURL   string        `json:"auth_identity_url"`
+	Node               string        `json:"node"`
+	RemoteAddress      string        `json:"remote_address"`
+	Version            string        `json:"version"`
+	ClientID           string        `json:"client_id"`
+	Hostname           string        `json:"hostname"`
+	UserAgent          string        `json:"user_agent"`
+	ConnectTs          int64         `json:"connect_ts"`
+	ConnectedDuration  time.Duration `json:"connected"`
+	InFlightCount      int           `json:"in_flight_count"`
+	ReadyCount         int           `json:"ready_count"`
+	FinishCount        int64         `json:"finish_count"`
+	RequeueCount       int64         `json:"requeue_count"`
+	MessageCount       int64         `json:"message_count"`
+	SampleRate         int32         `json:"sample_rate"`
+	Deflate            bool          `json:"deflate"`
+	Snappy             bool          `json:"snappy"`
+	Authed             bool          `json:"authed"`
+	AuthIdentity       string        `json:"auth_identity"`
+	AuthIdentityURL    string        `json:"auth_identity_url"`
+	NodeTopologyRegion string        `json:"node_topology_region,omitempty"`
+	NodeTopologyZone   string        `json:"node_topology_zone,omitempty"`
+	TopologyRegion     string        `json:"topology_region,omitempty"`
+	TopologyZone       string        `json:"topology_zone,omitempty"`
 
 	TLS                           bool   `json:"tls"`
 	CipherSuite                   string `json:"tls_cipher_suite"`
@@ -260,6 +270,35 @@ type ClientsByHost struct {
 
 func (c ClientsByHost) Less(i, j int) bool {
 	return c.ClientStatsList[i].Hostname < c.ClientStatsList[j].Hostname
+}
+
+type ClientStatsByNodeTopology struct {
+	ClientStatsList
+}
+
+func (c ClientStatsByNodeTopology) Less(i, j int) bool {
+	// if its the same node, sort by topology
+	if c.ClientStatsList[i].Node == c.ClientStatsList[j].Node {
+		region := c.ClientStatsList[i].NodeTopologyRegion
+		zone := c.ClientStatsList[i].NodeTopologyZone
+
+		switch {
+		case c.ClientStatsList[i].TopologyRegion == region && c.ClientStatsList[i].TopologyZone == zone:
+			return true
+		case c.ClientStatsList[j].TopologyRegion == region && c.ClientStatsList[j].TopologyZone == zone:
+			return false
+		case c.ClientStatsList[i].TopologyRegion == region:
+			return true
+		case c.ClientStatsList[j].TopologyRegion == region:
+			return false
+		default:
+			if c.ClientStatsList[i].TopologyRegion == c.ClientStatsList[j].TopologyRegion {
+				return c.ClientStatsList[i].TopologyZone < c.ClientStatsList[j].TopologyZone
+			}
+			return c.ClientStatsList[i].TopologyRegion < c.ClientStatsList[j].TopologyRegion
+		}
+	}
+	return c.ClientStatsList[i].Node < c.ClientStatsList[j].Node
 }
 
 type TopicStatsList []*TopicStats

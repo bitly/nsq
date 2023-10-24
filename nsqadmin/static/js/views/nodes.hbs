@@ -16,6 +16,8 @@
                 <th>TCP Port</th>
                 <th>HTTP Port</th>
                 <th>Version</th>
+                <th>Region</th>
+                <th>Zone</th>
                 {{#if nsqlookupd.length}}
                 <th>Lookupd Conns.</th>
                 {{/if}}
@@ -28,6 +30,8 @@
                 <td>{{tcp_port}}</td>
                 <td>{{http_port}}</td>
                 <td>{{version}}</td>
+                <td>{{topology_region}}</td>
+                <td>{{topology_zone}}</td>
                 {{#if ../nsqlookupd.length}}
                 <td>
                     <a class="conn-count btn btn-default btn-xs {{#unlesseq ../../nsqlookupd.length remote_addresses.length}}btn-warning{{/unlesseq}}">{{remote_addresses.length}}</a>

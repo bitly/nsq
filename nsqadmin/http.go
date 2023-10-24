@@ -13,6 +13,7 @@ import (
 	"os"
 	"path"
 	"reflect"
+	"sort"
 	"strings"
 	"time"
 
@@ -327,6 +328,8 @@ func (s *httpServer) channelHandler(w http.ResponseWriter, req *http.Request, ps
 		s.nsqadmin.logf(LOG_WARN, "%s", err)
 		messages = append(messages, pe.Error())
 	}
+
+	sort.Sort(clusterinfo.ClientStatsByNodeTopology{channelStats[channelName].Clients})
 
 	return struct {
 		*clusterinfo.ChannelStats

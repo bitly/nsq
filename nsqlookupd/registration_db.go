@@ -28,6 +28,8 @@ type PeerInfo struct {
 	TCPPort          int    `json:"tcp_port"`
 	HTTPPort         int    `json:"http_port"`
 	Version          string `json:"version"`
+	TopologyZone     string `json:"topology_zone"`
+	TopologyRegion   string `json:"topology_region"`
 }
 
 type Producer struct {

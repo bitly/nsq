@@ -20,6 +20,8 @@ func connectCallback(n *NSQD, hostname string) func(*lookupPeer) {
 		ci["http_port"] = n.getOpts().BroadcastHTTPPort
 		ci["hostname"] = hostname
 		ci["broadcast_address"] = n.getOpts().BroadcastAddress
+		ci["topology_zone"] = n.getOpts().TopologyZone
+		ci["topology_region"] = n.getOpts().TopologyRegion
 
 		cmd, err := nsq.Identify(ci)
 		if err != nil {
