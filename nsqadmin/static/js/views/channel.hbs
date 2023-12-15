@@ -186,7 +186,7 @@
                 <th>Connected</th>
             </tr>
             {{#each clients}}
-            <tr style={{#if (eq topology_zone node_topology_zone)}}"background-color:rgb(221,255,221)"{{/if}}{{#if (eq topology_region node_topology_region)}}"background-color:rgb(254,254,194)"{{/if}}>
+            <tr style={{#if (and node_topology_zone (eq topology_zone node_topology_zone))}}"background-color:rgb(221,255,221)"{{/if}}{{#if (and node_topology_region (eq topology_region node_topology_region))}}"background-color:rgb(254,254,194)"{{/if}}>
                 <td title="{{remote_address}}">{{hostname_port}}{{#if show_client_id}} ({{client_id}}){{/if}}</td>
                 <td>{{#if user_agent.length}}<small>{{user_agent}}</small>{{/if}}</td>
                 <td>
@@ -215,10 +215,14 @@
                     {{#if topology_zone}}
                         <span class="label label-default">{{topology_zone}}</span>
                     {{/if}}
-                    {{#if (eq topology_zone node_topology_zone)}}
+                    {{#if (and
+                        node_topology_zone
+                        (eq topology_zone node_topology_zone))}}
                         <span class="label label-default">zoneLocal</span>
                     {{else}}
-                        {{#if (eq topology_region node_topology_region)}}
+                        {{#if (and
+                            node_topology_region
+                            (eq topology_region node_topology_region))}}
                             <span class="label label-default">regionLocal</span>
                         {{/if}}
                     {{/if}}
