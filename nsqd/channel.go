@@ -90,10 +90,10 @@ func NewChannel(topicName string, channelName string, nsqd *NSQD,
 	}
 
 	if nsqd.getOpts().TopologyRegion != "" {
-		c.regionLocalMsgChan = make(chan *Message, 0)
+		c.regionLocalMsgChan = make(chan *Message)
 	}
 	if nsqd.getOpts().TopologyZone != "" {
-		c.zoneLocalMsgChan = make(chan *Message, 0)
+		c.zoneLocalMsgChan = make(chan *Message)
 	}
 
 	// avoid mem-queue if size == 0 for more consistent ordering

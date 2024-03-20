@@ -271,7 +271,7 @@ func TestSameZoneConsumerV2(t *testing.T) {
 		}
 	}
 	var doneCount int64
-	for _ = range done {
+	for range done {
 		doneCount += 1
 		if doneCount == 21 {
 			break
