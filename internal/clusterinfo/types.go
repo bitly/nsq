@@ -98,16 +98,20 @@ func (p *Producer) IsInconsistent(numLookupd int) bool {
 }
 
 type TopicStats struct {
-	Node         string          `json:"node"`
-	Hostname     string          `json:"hostname"`
-	TopicName    string          `json:"topic_name"`
-	Depth        int64           `json:"depth"`
-	MemoryDepth  int64           `json:"memory_depth"`
-	BackendDepth int64           `json:"backend_depth"`
-	MessageCount int64           `json:"message_count"`
-	NodeStats    []*TopicStats   `json:"nodes"`
-	Channels     []*ChannelStats `json:"channels"`
-	Paused       bool            `json:"paused"`
+	Node                string          `json:"node"`
+	Hostname            string          `json:"hostname"`
+	TopicName           string          `json:"topic_name"`
+	Depth               int64           `json:"depth"`
+	MemoryDepth         int64           `json:"memory_depth"`
+	BackendDepth        int64           `json:"backend_depth"`
+	MessageCount        int64           `json:"message_count"`
+	DeliveryMsgCount    int64           `json:"delivery_msg_count"`
+	ZoneLocalMsgCount   int64           `json:"zone_local_msg_count,omitempty"`
+	RegionLocalMsgCount int64           `json:"region_local_msg_count,omitempty"`
+	GlobalMsgCount      int64           `json:"global_msg_count,omitempty"`
+	NodeStats           []*TopicStats   `json:"nodes"`
+	Channels            []*ChannelStats `json:"channels"`
+	Paused              bool            `json:"paused"`
 
 	E2eProcessingLatency *quantile.E2eProcessingLatencyAggregate `json:"e2e_processing_latency"`
 }
@@ -118,6 +122,10 @@ func (t *TopicStats) Add(a *TopicStats) {
 	t.MemoryDepth += a.MemoryDepth
 	t.BackendDepth += a.BackendDepth
 	t.MessageCount += a.MessageCount
+	t.DeliveryMsgCount += a.DeliveryMsgCount
+	t.ZoneLocalMsgCount += a.ZoneLocalMsgCount
+	t.RegionLocalMsgCount += a.RegionLocalMsgCount
+	t.GlobalMsgCount += a.GlobalMsgCount
 	if a.Paused {
 		t.Paused = a.Paused
 	}
@@ -145,23 +153,27 @@ func (t *TopicStats) Add(a *TopicStats) {
 }
 
 type ChannelStats struct {
-	Node          string          `json:"node"`
-	Hostname      string          `json:"hostname"`
-	TopicName     string          `json:"topic_name"`
-	ChannelName   string          `json:"channel_name"`
-	Depth         int64           `json:"depth"`
-	MemoryDepth   int64           `json:"memory_depth"`
-	BackendDepth  int64           `json:"backend_depth"`
-	InFlightCount int64           `json:"in_flight_count"`
-	DeferredCount int64           `json:"deferred_count"`
-	RequeueCount  int64           `json:"requeue_count"`
-	TimeoutCount  int64           `json:"timeout_count"`
-	MessageCount  int64           `json:"message_count"`
-	ClientCount   int             `json:"client_count"`
-	Selected      bool            `json:"-"`
-	NodeStats     []*ChannelStats `json:"nodes"`
-	Clients       []*ClientStats  `json:"clients"`
-	Paused        bool            `json:"paused"`
+	Node                string          `json:"node"`
+	Hostname            string          `json:"hostname"`
+	TopicName           string          `json:"topic_name"`
+	ChannelName         string          `json:"channel_name"`
+	Depth               int64           `json:"depth"`
+	MemoryDepth         int64           `json:"memory_depth"`
+	BackendDepth        int64           `json:"backend_depth"`
+	InFlightCount       int64           `json:"in_flight_count"`
+	DeferredCount       int64           `json:"deferred_count"`
+	RequeueCount        int64           `json:"requeue_count"`
+	TimeoutCount        int64           `json:"timeout_count"`
+	MessageCount        int64           `json:"message_count"`
+	DeliveryMsgCount    int64           `json:"delivery_msg_count,omitempty"`
+	ZoneLocalMsgCount   int64           `json:"zone_local_msg_count,omitempty"`
+	RegionLocalMsgCount int64           `json:"region_local_msg_count,omitempty"`
+	GlobalMsgCount      int64           `json:"global_msg_count,omitempty"`
+	ClientCount         int             `json:"client_count"`
+	Selected            bool            `json:"-"`
+	NodeStats           []*ChannelStats `json:"nodes"`
+	Clients             []*ClientStats  `json:"clients"`
+	Paused              bool            `json:"paused"`
 
 	E2eProcessingLatency *quantile.E2eProcessingLatencyAggregate `json:"e2e_processing_latency"`
 }
@@ -176,6 +188,10 @@ func (c *ChannelStats) Add(a *ChannelStats) {
 	c.RequeueCount += a.RequeueCount
 	c.TimeoutCount += a.TimeoutCount
 	c.MessageCount += a.MessageCount
+	c.DeliveryMsgCount += a.DeliveryMsgCount
+	c.ZoneLocalMsgCount += a.ZoneLocalMsgCount
+	c.RegionLocalMsgCount += a.RegionLocalMsgCount
+	c.GlobalMsgCount += a.GlobalMsgCount
 	c.ClientCount += a.ClientCount
 	if a.Paused {
 		c.Paused = a.Paused

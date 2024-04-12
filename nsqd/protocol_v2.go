@@ -327,8 +327,21 @@ func (p *protocolV2) messagePump(client *clientV2, startedChan chan bool) {
 		case b = <-backendMsgChan:
 			// decodeMessage then handle 'msg'
 		case msg = <-zoneMsgChan:
+			atomic.AddUint64(&client.Channel.zoneLocalMsgCount, 1)
 		case msg = <-regionMsgChan:
+			if zoneLocal {
+				atomic.AddUint64(&client.Channel.zoneLocalMsgCount, 1)
+			} else {
+				atomic.AddUint64(&client.Channel.regionLocalMsgCount, 1)
+			}
 		case msg = <-memoryMsgChan:
+			if zoneLocal {
+				atomic.AddUint64(&client.Channel.zoneLocalMsgCount, 1)
+			} else if regionLocal {
+				atomic.AddUint64(&client.Channel.regionLocalMsgCount, 1)
+			} else {
+				atomic.AddUint64(&client.Channel.globalMsgCount, 1)
+			}
 		case <-client.ExitChan:
 			goto exit
 		}

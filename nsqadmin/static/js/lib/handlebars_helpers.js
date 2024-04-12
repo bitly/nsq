@@ -184,6 +184,10 @@ Handlebars.registerHelper('floatToPercent', function(f) {
     return Math.floor(f * 100);
 });
 
+Handlebars.registerHelper('floatToDecimalPercent', function(f) {
+    return parseFloat((f * 100).toFixed(2));
+});
+
 Handlebars.registerHelper('percSuffix', function(f) {
     var v = Math.floor(f * 100) % 10;
     if (v === 1) {

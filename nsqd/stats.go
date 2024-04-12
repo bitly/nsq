@@ -44,17 +44,20 @@ func NewTopicStats(t *Topic, channels []ChannelStats) TopicStats {
 }
 
 type ChannelStats struct {
-	ChannelName   string        `json:"channel_name"`
-	Depth         int64         `json:"depth"`
-	BackendDepth  int64         `json:"backend_depth"`
-	InFlightCount int           `json:"in_flight_count"`
-	DeferredCount int           `json:"deferred_count"`
-	MessageCount  uint64        `json:"message_count"`
-	RequeueCount  uint64        `json:"requeue_count"`
-	TimeoutCount  uint64        `json:"timeout_count"`
-	ClientCount   int           `json:"client_count"`
-	Clients       []ClientStats `json:"clients"`
-	Paused        bool          `json:"paused"`
+	ChannelName         string        `json:"channel_name"`
+	Depth               int64         `json:"depth"`
+	BackendDepth        int64         `json:"backend_depth"`
+	InFlightCount       int           `json:"in_flight_count"`
+	DeferredCount       int           `json:"deferred_count"`
+	MessageCount        uint64        `json:"message_count"`
+	ZoneLocalMsgCount   uint64        `json:"zone_local_msg_count,omitempty"`
+	RegionLocalMsgCount uint64        `json:"region_local_msg_count,omitempty"`
+	GlobalMsgCount      uint64        `json:"global_msg_count,omitempty"`
+	RequeueCount        uint64        `json:"requeue_count"`
+	TimeoutCount        uint64        `json:"timeout_count"`
+	ClientCount         int           `json:"client_count"`
+	Clients             []ClientStats `json:"clients"`
+	Paused              bool          `json:"paused"`
 
 	E2eProcessingLatency *quantile.Result `json:"e2e_processing_latency"`
 }
@@ -68,17 +71,20 @@ func NewChannelStats(c *Channel, clients []ClientStats, clientCount int) Channel
 	c.deferredMutex.Unlock()
 
 	return ChannelStats{
-		ChannelName:   c.name,
-		Depth:         c.Depth(),
-		BackendDepth:  c.backend.Depth(),
-		InFlightCount: inflight,
-		DeferredCount: deferred,
-		MessageCount:  atomic.LoadUint64(&c.messageCount),
-		RequeueCount:  atomic.LoadUint64(&c.requeueCount),
-		TimeoutCount:  atomic.LoadUint64(&c.timeoutCount),
-		ClientCount:   clientCount,
-		Clients:       clients,
-		Paused:        c.IsPaused(),
+		ChannelName:         c.name,
+		Depth:               c.Depth(),
+		BackendDepth:        c.backend.Depth(),
+		InFlightCount:       inflight,
+		DeferredCount:       deferred,
+		MessageCount:        atomic.LoadUint64(&c.messageCount),
+		ZoneLocalMsgCount:   atomic.LoadUint64(&c.zoneLocalMsgCount),
+		RegionLocalMsgCount: atomic.LoadUint64(&c.regionLocalMsgCount),
+		GlobalMsgCount:      atomic.LoadUint64(&c.globalMsgCount),
+		RequeueCount:        atomic.LoadUint64(&c.requeueCount),
+		TimeoutCount:        atomic.LoadUint64(&c.timeoutCount),
+		ClientCount:         clientCount,
+		Clients:             clients,
+		Paused:              c.IsPaused(),
 
 		E2eProcessingLatency: c.e2eProcessingLatencyStream.Result(),
 	}

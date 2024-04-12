@@ -36,9 +36,12 @@ type Consumer interface {
 // messages, timeouts, requeuing, etc.
 type Channel struct {
 	// 64bit atomic vars need to be first for proper alignment on 32bit platforms
-	requeueCount uint64
-	messageCount uint64
-	timeoutCount uint64
+	requeueCount        uint64
+	messageCount        uint64
+	zoneLocalMsgCount   uint64
+	regionLocalMsgCount uint64
+	globalMsgCount      uint64
+	timeoutCount        uint64
 
 	sync.RWMutex
 
