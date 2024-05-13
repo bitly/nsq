@@ -23,6 +23,7 @@ import (
 var (
 	topic     = flag.String("topic", "", "NSQ topic to publish to")
 	delimiter = flag.String("delimiter", "\n", "character to split input from stdin")
+	async     = flag.Bool("async", false, "use async mode (default false)")
 
 	destNsqdTCPAddrs = app.StringArray{}
 )
@@ -138,7 +139,12 @@ func readAndPublish(r *bufio.Reader, delim byte, producers map[string]*nsq.Produ
 	}
 
 	for _, producer := range producers {
-		err := producer.Publish(*topic, line)
+		var err error
+		if *async {
+			err = producer.PublishAsync(*topic, line, nil, nil)
+		} else {
+			err = producer.Publish(*topic, line)
+		}
 		if err != nil {
 			return err
 		}
