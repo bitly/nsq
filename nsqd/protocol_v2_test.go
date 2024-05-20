@@ -222,7 +222,6 @@ func TestSameZoneConsumerV2(t *testing.T) {
 
 	topicName := "test_zone_v2" + strconv.Itoa(int(time.Now().Unix()))
 	topic := nsqd.GetTopic(topicName)
-	msg := NewMessage(topic.GenerateID(), []byte("test body"))
 	topic.GetChannel("ch")
 
 	var sameZone, diffZone int64
@@ -264,7 +263,7 @@ func TestSameZoneConsumerV2(t *testing.T) {
 	// first 20 messages go to same zone (each has RDY 10)
 	// next message goes to global memoryChan (All consumers)
 	for i := 0; i < 21; i++ {
-		topic.PutMessage(msg)
+		topic.PutMessage(NewMessage(topic.GenerateID(), make([]byte, 100)))
 		if i%2 == 0 {
 			// sleep long enough for messagePump to wait again
 			time.Sleep(time.Millisecond)
