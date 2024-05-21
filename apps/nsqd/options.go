@@ -201,7 +201,7 @@ func nsqdFlagSet(opts *nsqd.Options) *flag.FlagSet {
 	experiments := app.StringArray{}
 	var validExperiments []string
 	for _, e := range nsqd.AllExperiments {
-		validExperiments = append(validExperiments, fmt.Sprintf("'%s'", string(e)))
+		validExperiments = append(validExperiments, fmt.Sprintf("%q", string(e)))
 	}
 	flagSet.Var(&experiments, "enable-experiment", fmt.Sprintf("enable experimental feature (may be given multiple times) (valid options: %s)", strings.Join(validExperiments, ", ")))
 
