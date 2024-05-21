@@ -335,7 +335,7 @@ func (c *Channel) put(m *Message) error {
 		// we do this to ensure that we preferentially deliver messages based on toplogy
 		//
 		// Because messagePump is intermittently unavailable while writing a msg to a client
-		// we continue to have higher priority channels in the select loop, this means at each
+		// we continue to add lower priority channels in the select loop, this means at each
 		// attempt a higher priority channel can still win
 		select {
 		case c.zoneLocalMsgChan <- m:
