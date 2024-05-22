@@ -165,6 +165,18 @@
   display: inline;
 }
 
+.bg-zone-local {
+  background-color: #ddffdd;
+}
+
+.bg-region-local {
+  background-color: #fefec2;
+}
+
+.bg-global {
+  background-color: white;
+}
+
 .popup {
   position: relative;
   display: inline-block;

@@ -97,17 +97,17 @@
             <td>
                 <div class="popup" data-id="popup-{{node}}">
                     <div class="progress" style="width: 120px; height: 20px; border-right: .01em solid #777; border-left: .01em solid #777; border-top: .01em solid #777; border-bottom: .01em solid #777">
-                        <div class="progress-bar progress-bar-success" style="background-color:rgb(221,255,221); width: {{floatToPercent zone_local_percentage}}%">
+                        <div class="progress-bar progress-bar-success bg-zone-local" style="width: {{floatToPercent zone_local_percentage}}%">
                             <span class="sr-only">{{floatToPercent zone_local_percentage}}%</span>
                         </div>
-                        <div class="progress-bar progress-bar-warning progress-bar-striped" style="background-color:rgb(254,254,194); width: {{floatToPercent region_local_percentage}}%">
+                        <div class="progress-bar progress-bar-warning progress-bar-striped bg-region-local" style="width: {{floatToPercent region_local_percentage}}%">
                             <span class="sr-only">{{floatToPercent region_local_percentage}}%</span>
                         </div>
-                        <div class="progress-bar progress-bar-danger" style="background-color: white; width: {{floatToPercent global_percentage}}%">
+                        <div class="progress-bar progress-bar-danger bg-global" style="width: {{floatToPercent global_percentage}}%">
                             <span class="sr-only">{{floatToPercent global_percentage}}%</span>
                         </div>
                     </div>
-                    <span class="popuptext" id="popup-{{node}}"><span style="background-color:rgb(221,255,221); color:#4b4b4b">{{floatToDecimalPercent zone_local_percentage}}%</span> | <span style="background-color:rgb(254,254,194); color:#4b4b4b">{{floatToDecimalPercent region_local_percentage}}%</span> | <span style="color:#4b4b4b">{{floatToDecimalPercent global_percentage}}%</span></span>
+                    <span class="popuptext" id="popup-{{node}}"><span class="bg-zone-local" style="color:#4b4b4b">{{floatToDecimalPercent zone_local_percentage}}%</span> | <span class="bg-region-local" style="color:#4b4b4b">{{floatToDecimalPercent region_local_percentage}}%</span> | <span style="color:#4b4b4b">{{floatToDecimalPercent global_percentage}}%</span></span>
                 </div>
             </td>
             {{/if}}
@@ -208,7 +208,7 @@
                 <th>Connected</th>
             </tr>
             {{#each clients}}
-            <tr style={{#if (and node_topology_zone (eq topology_zone node_topology_zone))}}"background-color:rgb(221,255,221)"{{/if}}{{#if (and node_topology_region (eq topology_region node_topology_region))}}"background-color:rgb(254,254,194)"{{/if}}>
+            <tr class={{#if (and node_topology_zone (eq topology_zone node_topology_zone))}}"bg-zone-local"{{/if}}{{#if (and node_topology_region (eq topology_region node_topology_region))}}"bg-region-local"{{/if}}>
                 <td title="{{remote_address}}">{{hostname_port}}{{#if show_client_id}} ({{client_id}}){{/if}}</td>
                 <td>{{#if user_agent.length}}<small>{{user_agent}}</small>{{/if}}</td>
                 <td>
