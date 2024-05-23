@@ -81,17 +81,19 @@ func New(opts *Options) (*NSQAdmin, error) {
 		n.httpClientTLSConfig.RootCAs = tlsCertPool
 	}
 
-	for _, address := range opts.NSQLookupdHTTPAddresses {
-		_, err := net.ResolveTCPAddr("tcp", address)
-		if err != nil {
-			return nil, fmt.Errorf("failed to resolve --lookupd-http-address (%s) - %s", address, err)
+	if !opts.SkipResolveOnStartup {
+		for _, address := range opts.NSQLookupdHTTPAddresses {
+			_, err := net.ResolveTCPAddr("tcp", address)
+			if err != nil {
+				return nil, fmt.Errorf("failed to resolve --lookupd-http-address (%s) - %s", address, err)
+			}
 		}
-	}
 
-	for _, address := range opts.NSQDHTTPAddresses {
-		_, err := net.ResolveTCPAddr("tcp", address)
-		if err != nil {
-			return nil, fmt.Errorf("failed to resolve --nsqd-http-address (%s) - %s", address, err)
+		for _, address := range opts.NSQDHTTPAddresses {
+			_, err := net.ResolveTCPAddr("tcp", address)
+			if err != nil {
+				return nil, fmt.Errorf("failed to resolve --nsqd-http-address (%s) - %s", address, err)
+			}
 		}
 	}
 

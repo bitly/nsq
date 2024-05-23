@@ -57,6 +57,7 @@ func nsqadminFlagSet(opts *nsqadmin.Options) *flag.FlagSet {
 	flagSet.Var(&nsqlookupdHTTPAddresses, "lookupd-http-address", "lookupd HTTP address (may be given multiple times)")
 	nsqdHTTPAddresses := app.StringArray{}
 	flagSet.Var(&nsqdHTTPAddresses, "nsqd-http-address", "nsqd HTTP address (may be given multiple times)")
+	flagSet.Bool("skip-resolve-on-startup", false, "skip DNS lookup of addresses on startup")
 	adminUsers := app.StringArray{}
 	flagSet.Var(&adminUsers, "admin-user", "admin user (may be given multiple times; if specified, only these users will be able to perform privileged actions; acl-http-header is used to determine the authenticated user)")
 

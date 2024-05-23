@@ -27,6 +27,7 @@ type Options struct {
 
 	NSQLookupdHTTPAddresses []string `flag:"lookupd-http-address" cfg:"nsqlookupd_http_addresses"`
 	NSQDHTTPAddresses       []string `flag:"nsqd-http-address" cfg:"nsqd_http_addresses"`
+	SkipResolveOnStartup    bool     `flag:"skip-resolve-on-startup" cfg:"skip_resolve_on_startup"`
 
 	HTTPClientConnectTimeout time.Duration `flag:"http-client-connect-timeout"`
 	HTTPClientRequestTimeout time.Duration `flag:"http-client-request-timeout"`
