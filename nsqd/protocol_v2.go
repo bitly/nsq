@@ -202,7 +202,7 @@ func (p *protocolV2) Exec(client *clientV2, params [][]byte) ([]byte, error) {
 
 func (p *protocolV2) messagePump(client *clientV2, startedChan chan bool) {
 	var err error
-	var memoryMsgChan chan *Message
+	var zoneMsgChan, regionMsgChan, memoryMsgChan chan *Message
 	var backendMsgChan <-chan []byte
 	var subChannel *Channel
 	// NOTE: `flusherChan` is used to bound message latency for
@@ -210,6 +210,7 @@ func (p *protocolV2) messagePump(client *clientV2, startedChan chan bool) {
 	// with >1 clients having >1 RDY counts
 	var flusherChan <-chan time.Time
 	var sampleRate int32
+	var regionLocal, zoneLocal bool
 
 	subEventChan := client.SubEventChan
 	identifyEventChan := client.IdentifyEventChan
@@ -231,9 +232,13 @@ func (p *protocolV2) messagePump(client *clientV2, startedChan chan bool) {
 	close(startedChan)
 
 	for {
+		var b []byte
+		var msg *Message
 		if subChannel == nil || !client.IsReadyForMessages() {
 			// the client is not ready to receive messages...
 			memoryMsgChan = nil
+			regionMsgChan = nil
+			zoneMsgChan = nil
 			backendMsgChan = nil
 			flusherChan = nil
 			// force flush
@@ -248,12 +253,24 @@ func (p *protocolV2) messagePump(client *clientV2, startedChan chan bool) {
 			// last iteration we flushed...
 			// do not select on the flusher ticker channel
 			memoryMsgChan = subChannel.memoryMsgChan
+			if zoneLocal {
+				zoneMsgChan = subChannel.zoneLocalMsgChan
+			}
+			if regionLocal {
+				regionMsgChan = subChannel.regionLocalMsgChan
+			}
 			backendMsgChan = subChannel.backend.ReadChan()
 			flusherChan = nil
 		} else {
 			// we're buffered (if there isn't any more data we should flush)...
 			// select on the flusher ticker channel, too
 			memoryMsgChan = subChannel.memoryMsgChan
+			if zoneLocal {
+				zoneMsgChan = subChannel.zoneLocalMsgChan
+			}
+			if regionLocal {
+				regionMsgChan = subChannel.regionLocalMsgChan
+			}
 			backendMsgChan = subChannel.backend.ReadChan()
 			flusherChan = outputBufferTicker.C
 		}
@@ -295,36 +312,51 @@ func (p *protocolV2) messagePump(client *clientV2, startedChan chan bool) {
 			}
 
 			msgTimeout = identifyData.MsgTimeout
+			isToplogyAware := p.nsqd.getOpts().HasExperiment(TopologyAwareConsumption)
+			if identifyData.TopologyZone == p.nsqd.getOpts().TopologyZone && isToplogyAware {
+				zoneLocal = true
+			}
+			if identifyData.TopologyRegion == p.nsqd.getOpts().TopologyRegion && isToplogyAware {
+				regionLocal = true
+			}
 		case <-heartbeatChan:
 			err = p.Send(client, frameTypeResponse, heartbeatBytes)
 			if err != nil {
 				goto exit
 			}
-		case b := <-backendMsgChan:
-			if sampleRate > 0 && rand.Int31n(100) > sampleRate {
-				continue
+		case b = <-backendMsgChan:
+			// decodeMessage then handle 'msg'
+		case msg = <-zoneMsgChan:
+			atomic.AddUint64(&client.Channel.zoneLocalMsgCount, 1)
+		case msg = <-regionMsgChan:
+			if zoneLocal {
+				atomic.AddUint64(&client.Channel.zoneLocalMsgCount, 1)
+			} else {
+				atomic.AddUint64(&client.Channel.regionLocalMsgCount, 1)
 			}
-
-			msg, err := decodeMessage(b)
+		case msg = <-memoryMsgChan:
+			if zoneLocal {
+				atomic.AddUint64(&client.Channel.zoneLocalMsgCount, 1)
+			} else if regionLocal {
+				atomic.AddUint64(&client.Channel.regionLocalMsgCount, 1)
+			} else {
+				atomic.AddUint64(&client.Channel.globalMsgCount, 1)
+			}
+		case <-client.ExitChan:
+			goto exit
+		}
+		if len(b) != 0 {
+			msg, err = decodeMessage(b)
 			if err != nil {
 				p.nsqd.logf(LOG_ERROR, "failed to decode message - %s", err)
 				continue
 			}
-			msg.Attempts++
-
-			subChannel.StartInFlightTimeout(msg, client.ID, msgTimeout)
-			client.SendingMessage()
-			err = p.SendMessage(client, msg)
-			if err != nil {
-				goto exit
-			}
-			flushed = false
-		case msg := <-memoryMsgChan:
+		}
+		if msg != nil {
 			if sampleRate > 0 && rand.Int31n(100) > sampleRate {
 				continue
 			}
 			msg.Attempts++
-
 			subChannel.StartInFlightTimeout(msg, client.ID, msgTimeout)
 			client.SendingMessage()
 			err = p.SendMessage(client, msg)
@@ -332,9 +364,8 @@ func (p *protocolV2) messagePump(client *clientV2, startedChan chan bool) {
 				goto exit
 			}
 			flushed = false
-		case <-client.ExitChan:
-			goto exit
 		}
+
 	}
 
 exit:
@@ -422,6 +453,8 @@ func (p *protocolV2) IDENTIFY(client *clientV2, params [][]byte) ([]byte, error)
 		AuthRequired        bool   `json:"auth_required"`
 		OutputBufferSize    int    `json:"output_buffer_size"`
 		OutputBufferTimeout int64  `json:"output_buffer_timeout"`
+		TopologyRegion      string `json:"topology_region"`
+		TopologyZone        string `json:"topology_zone"`
 	}{
 		MaxRdyCount:         p.nsqd.getOpts().MaxRdyCount,
 		Version:             version.Binary,
@@ -436,6 +469,8 @@ func (p *protocolV2) IDENTIFY(client *clientV2, params [][]byte) ([]byte, error)
 		AuthRequired:        p.nsqd.IsAuthEnabled(),
 		OutputBufferSize:    client.OutputBufferSize,
 		OutputBufferTimeout: int64(client.OutputBufferTimeout / time.Millisecond),
+		TopologyRegion:      p.nsqd.getOpts().TopologyRegion,
+		TopologyZone:        p.nsqd.getOpts().TopologyZone,
 	})
 	if err != nil {
 		return nil, protocol.NewFatalClientErr(err, "E_IDENTIFY_FAILED", "IDENTIFY failed "+err.Error())

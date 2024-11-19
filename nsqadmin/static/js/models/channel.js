@@ -22,8 +22,24 @@ var Channel = Backbone.Model.extend({
             var port = nodeParts.pop();
             var address = nodeParts.join(':');
             var hostname = node['hostname'];
+            var zonecount = node['zone_local_msg_count'];
+            var deliverycount = node['delivery_msg_count'];
+            var regioncount = node['region_local_msg_count'];
+            var globalcount = node['global_msg_count'];
             node['show_broadcast_address'] = hostname.toLowerCase() !== address.toLowerCase();
             node['hostname_port'] = hostname + ':' + port;
+            node['zone_local_percentage'] = zonecount / deliverycount;
+            node['region_local_percentage'] = regioncount / deliverycount;
+            node['global_percentage'] = globalcount / deliverycount;
+            if (isNaN(node['zone_local_percentage'])) {
+                node['zone_local_percentage'] = 0;
+            }
+            if (isNaN(node['region_local_percentage'])) {
+                node['region_local_percentage'] = 0;
+            }
+            if (isNaN(node['global_percentage'])) {
+                node['global_percentage'] = 0;
+            }
             return node;
         });
 

@@ -256,6 +256,8 @@ type node struct {
 	TCPPort          int      `json:"tcp_port"`
 	HTTPPort         int      `json:"http_port"`
 	Version          string   `json:"version"`
+	ToplogyZone      string   `json:"topology_zone"`
+	ToplogyRegion    string   `json:"topology_region"`
 	Tombstones       []bool   `json:"tombstones"`
 	Topics           []string `json:"topics"`
 }
@@ -293,6 +295,8 @@ func (s *httpServer) doNodes(w http.ResponseWriter, req *http.Request, ps httpro
 			TCPPort:          p.peerInfo.TCPPort,
 			HTTPPort:         p.peerInfo.HTTPPort,
 			Version:          p.peerInfo.Version,
+			ToplogyZone:      p.peerInfo.TopologyZone,
+			ToplogyRegion:    p.peerInfo.TopologyRegion,
 			Tombstones:       tombstones,
 			Topics:           topics,
 		}
@@ -318,6 +322,8 @@ func (s *httpServer) doDebug(w http.ResponseWriter, req *http.Request, ps httpro
 				"tcp_port":          p.peerInfo.TCPPort,
 				"http_port":         p.peerInfo.HTTPPort,
 				"version":           p.peerInfo.Version,
+				"topology_zone":     p.peerInfo.TopologyZone,
+				"topology_region":   p.peerInfo.TopologyRegion,
 				"last_update":       atomic.LoadInt64(&p.peerInfo.lastUpdate),
 				"tombstoned":        p.tombstoned,
 				"tombstoned_at":     p.tombstonedAt.UnixNano(),

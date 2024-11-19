@@ -36,9 +36,12 @@ type Consumer interface {
 // messages, timeouts, requeuing, etc.
 type Channel struct {
 	// 64bit atomic vars need to be first for proper alignment on 32bit platforms
-	requeueCount uint64
-	messageCount uint64
-	timeoutCount uint64
+	requeueCount        uint64
+	messageCount        uint64
+	zoneLocalMsgCount   uint64
+	regionLocalMsgCount uint64
+	globalMsgCount      uint64
+	timeoutCount        uint64
 
 	sync.RWMutex
 
@@ -48,9 +51,12 @@ type Channel struct {
 
 	backend BackendQueue
 
-	memoryMsgChan chan *Message
-	exitFlag      int32
-	exitMutex     sync.RWMutex
+	topologyAwareConsumption bool
+	zoneLocalMsgChan         chan *Message
+	regionLocalMsgChan       chan *Message
+	memoryMsgChan            chan *Message
+	exitFlag                 int32
+	exitMutex                sync.RWMutex
 
 	// state tracking
 	clients        map[int64]Consumer
@@ -76,14 +82,23 @@ func NewChannel(topicName string, channelName string, nsqd *NSQD,
 	deleteCallback func(*Channel)) *Channel {
 
 	c := &Channel{
-		topicName:      topicName,
-		name:           channelName,
-		memoryMsgChan:  nil,
-		clients:        make(map[int64]Consumer),
-		deleteCallback: deleteCallback,
-		nsqd:           nsqd,
-		ephemeral:      strings.HasSuffix(channelName, "#ephemeral"),
+		topicName:                topicName,
+		name:                     channelName,
+		memoryMsgChan:            nil,
+		clients:                  make(map[int64]Consumer),
+		deleteCallback:           deleteCallback,
+		nsqd:                     nsqd,
+		ephemeral:                strings.HasSuffix(channelName, "#ephemeral"),
+		topologyAwareConsumption: nsqd.getOpts().HasExperiment(TopologyAwareConsumption),
 	}
+
+	if nsqd.getOpts().TopologyRegion != "" {
+		c.regionLocalMsgChan = make(chan *Message)
+	}
+	if nsqd.getOpts().TopologyZone != "" {
+		c.zoneLocalMsgChan = make(chan *Message)
+	}
+
 	// avoid mem-queue if size == 0 for more consistent ordering
 	if nsqd.getOpts().MemQueueSize > 0 || c.ephemeral {
 		c.memoryMsgChan = make(chan *Message, nsqd.getOpts().MemQueueSize)
@@ -199,6 +214,8 @@ func (c *Channel) Empty() error {
 
 	for {
 		select {
+		case <-c.zoneLocalMsgChan:
+		case <-c.regionLocalMsgChan:
 		case <-c.memoryMsgChan:
 		default:
 			goto finish
@@ -212,13 +229,23 @@ finish:
 // flush persists all the messages in internal memory buffers to the backend
 // it does not drain inflight/deferred because it is only called in Close()
 func (c *Channel) flush() error {
-	if len(c.memoryMsgChan) > 0 || len(c.inFlightMessages) > 0 || len(c.deferredMessages) > 0 {
+	if len(c.zoneLocalMsgChan) > 0 || len(c.regionLocalMsgChan) > 0 || len(c.memoryMsgChan) > 0 || len(c.inFlightMessages) > 0 || len(c.deferredMessages) > 0 {
 		c.nsqd.logf(LOG_INFO, "CHANNEL(%s): flushing %d memory %d in-flight %d deferred messages to backend",
-			c.name, len(c.memoryMsgChan), len(c.inFlightMessages), len(c.deferredMessages))
+			c.name, len(c.memoryMsgChan)+len(c.zoneLocalMsgChan)+len(c.regionLocalMsgChan), len(c.inFlightMessages), len(c.deferredMessages))
 	}
 
 	for {
 		select {
+		case msg := <-c.zoneLocalMsgChan:
+			err := writeMessageToBackend(msg, c.backend)
+			if err != nil {
+				c.nsqd.logf(LOG_ERROR, "failed to write message to backend - %s", err)
+			}
+		case msg := <-c.regionLocalMsgChan:
+			err := writeMessageToBackend(msg, c.backend)
+			if err != nil {
+				c.nsqd.logf(LOG_ERROR, "failed to write message to backend - %s", err)
+			}
 		case msg := <-c.memoryMsgChan:
 			err := writeMessageToBackend(msg, c.backend)
 			if err != nil {
@@ -253,7 +280,7 @@ finish:
 }
 
 func (c *Channel) Depth() int64 {
-	return int64(len(c.memoryMsgChan)) + c.backend.Depth()
+	return int64(len(c.memoryMsgChan)) + int64(len(c.zoneLocalMsgChan)) + int64(len(c.regionLocalMsgChan)) + c.backend.Depth()
 }
 
 func (c *Channel) Pause() error {
@@ -303,16 +330,51 @@ func (c *Channel) PutMessage(m *Message) error {
 }
 
 func (c *Channel) put(m *Message) error {
-	select {
-	case c.memoryMsgChan <- m:
-	default:
-		err := writeMessageToBackend(m, c.backend)
-		c.nsqd.SetHealth(err)
-		if err != nil {
-			c.nsqd.logf(LOG_ERROR, "CHANNEL(%s): failed to write message to backend - %s",
-				c.name, err)
-			return err
+	if c.topologyAwareConsumption {
+		// Attempt zone local, region local and finally the memory channel
+		// we do this to ensure that we preferentially deliver messages based on toplogy
+		//
+		// Because messagePump is intermittently unavailable while writing a msg to a client
+		// we continue to add lower priority channels in the select loop, this means at each
+		// attempt a higher priority channel can still win
+		select {
+		case c.zoneLocalMsgChan <- m:
+			return nil
+		default:
 		}
+		select {
+		case c.zoneLocalMsgChan <- m:
+			return nil
+		case c.regionLocalMsgChan <- m:
+			return nil
+		default:
+		}
+
+		select {
+		case c.zoneLocalMsgChan <- m:
+			return nil
+		case c.regionLocalMsgChan <- m:
+			return nil
+		case c.memoryMsgChan <- m:
+			return nil
+		default:
+		}
+
+	} else {
+
+		select {
+		case c.memoryMsgChan <- m:
+			return nil
+		default:
+		}
+	}
+
+	err := writeMessageToBackend(m, c.backend)
+	c.nsqd.SetHealth(err)
+	if err != nil {
+		c.nsqd.logf(LOG_ERROR, "CHANNEL(%s): failed to write message to backend - %s",
+			c.name, err)
+		return err
 	}
 	return nil
 }

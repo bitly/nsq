@@ -51,7 +51,7 @@
         <tr>
             <th>&nbsp;</th>
             <th colspan="4" class="text-center">Message Queues</th>
-            <th colspan="{{#if graph_active}}5{{else}}4{{/if}}" class="text-center">Statistics</th>
+            <th colspan="{{#if graph_active}}6{{else}}5{{/if}}" class="text-center">Statistics</th>
             {{#if e2e_processing_latency.percentiles.length}}
             <th colspan="{{e2e_processing_latency.percentiles.length}}">E2E Processing Latency</th>
             {{/if}}
@@ -67,6 +67,7 @@
             <th>Messages</th>
             {{#if graph_active}}<th>Rate</th>{{/if}}
             <th>Connections</th>
+            {{#if delivery_msg_count}}<th style="width: 130px">Delivery</th>{{/if}}
             {{#each e2e_processing_latency.percentiles}}
                 <th>{{floatToPercent quantile}}<sup>{{percSuffix quantile}}</sup></th>
             {{/each}}
@@ -92,6 +93,24 @@
                 <td class="bold rate" target="{{rate "topic" node topic_name ""}}"></td>
             {{/if}}
             <td>{{commafy client_count}}</td>
+            {{#if delivery_msg_count}}
+            <td>
+                <div class="popup" data-id="popup-{{node}}">
+                    <div class="progress" style="width: 120px; height: 20px; border-right: .01em solid #777; border-left: .01em solid #777; border-top: .01em solid #777; border-bottom: .01em solid #777">
+                        <div class="progress-bar progress-bar-success bg-zone-local" style="width: {{floatToPercent zone_local_percentage}}%">
+                            <span class="sr-only">{{floatToPercent zone_local_percentage}}%</span>
+                        </div>
+                        <div class="progress-bar progress-bar-warning progress-bar-striped bg-region-local" style="width: {{floatToPercent region_local_percentage}}%">
+                            <span class="sr-only">{{floatToPercent region_local_percentage}}%</span>
+                        </div>
+                        <div class="progress-bar progress-bar-danger bg-global" style="width: {{floatToPercent global_percentage}}%">
+                            <span class="sr-only">{{floatToPercent global_percentage}}%</span>
+                        </div>
+                    </div>
+                    <span class="popuptext" id="popup-{{node}}"><span class="bg-zone-local" style="color:#4b4b4b">{{floatToDecimalPercent zone_local_percentage}}%</span> | <span class="bg-region-local" style="color:#4b4b4b">{{floatToDecimalPercent region_local_percentage}}%</span> | <span style="color:#4b4b4b">{{floatToDecimalPercent global_percentage}}%</span></span>
+                </div>
+            </td>
+            {{/if}}
             {{#if e2e_processing_latency.percentiles.length}}
                 {{#each e2e_processing_latency.percentiles}}
                 <td>
@@ -112,6 +131,7 @@
             <td><a href="{{large_graph "channel" node topic_name channel_name "message_count"}}"><img width="120" height="20"  src="{{sparkline "channel" node topic_name channel_name "message_count"}}"></a></td>
             <td></td>
             <td><a href="{{large_graph "channel" node topic_name channel_name "clients"}}"><img width="120" height="20"  src="{{sparkline "channel" node topic_name channel_name "clients"}}"></a></td>
+            {{#if delivery_msg_count}}<td></td>{{/if}}
             {{#if e2e_processing_latency.percentiles.length}}
             <td colspan="{{e2e_processing_latency.percentiles.length}}">
                 <a href="{{large_graph "e2e" node e2e_processing_latency "" "e2e_processing_latency"}}"><img width="120" height="20" src="{{sparkline "e2e" node e2e_processing_latency "" "e2e_processing_latency"}}"></a>
@@ -133,6 +153,7 @@
                 <td class="bold rate" target="{{rate "topic" node topic_name ""}}"></td>
             {{/if}}
             <td>{{commafy client_count}}</td>
+            {{#if delivery_msg_count}}<td></td>{{/if}}
             {{#if e2e_processing_latency.percentiles.length}}
                 {{#each e2e_processing_latency.percentiles}}
                 <td>
@@ -153,6 +174,7 @@
             <td><a href="{{large_graph "channel" node topic_name channel_name "message_count"}}"><img width="120" height="20"  src="{{sparkline "channel" node topic_name channel_name "message_count"}}"></a></td>
             <td></td>
             <td><a href="{{large_graph "channel" node topic_name channel_name "clients"}}"><img width="120" height="20"  src="{{sparkline "channel" node topic_name channel_name "clients"}}"></a></td>
+            {{#if delivery_msg_count}}<td></td>{{/if}}
             {{#if e2e_processing_latency.percentiles.length}}
             <td colspan="{{e2e_processing_latency.percentiles.length}}">
                 <a href="{{large_graph "e2e" node e2e_processing_latency "" "e2e_processing_latency"}}"><img width="120" height="20"  src="{{sparkline "e2e" node e2e_processing_latency "" "e2e_processing_latency"}}"></a>
@@ -186,7 +208,7 @@
                 <th>Connected</th>
             </tr>
             {{#each clients}}
-            <tr>
+            <tr class={{#if (and node_topology_zone (eq topology_zone node_topology_zone))}}"bg-zone-local"{{/if}}{{#if (and node_topology_region (eq topology_region node_topology_region))}}"bg-region-local"{{/if}}>
                 <td title="{{remote_address}}">{{hostname_port}}{{#if show_client_id}} ({{client_id}}){{/if}}</td>
                 <td>{{#if user_agent.length}}<small>{{user_agent}}</small>{{/if}}</td>
                 <td>
@@ -208,6 +230,23 @@
                         <span class="glyphicon glyphicon-user white" title="Authed{{#if auth_identity}} Identity:{{auth_identity}}{{/if}}"></span>
                         {{#if auth_identity_url}}</a>{{/if}}
                         </span>
+                    {{/if}}
+                    {{#if topology_region}}
+                        <span class="label label-default">{{topology_region}}</span>
+                    {{/if}}
+                    {{#if topology_zone}}
+                        <span class="label label-default">{{topology_zone}}</span>
+                    {{/if}}
+                    {{#if (and
+                        node_topology_zone
+                        (eq topology_zone node_topology_zone))}}
+                        <span class="label label-default">zoneLocal</span>
+                    {{else}}
+                        {{#if (and
+                            node_topology_region
+                            (eq topology_region node_topology_region))}}
+                            <span class="label label-default">regionLocal</span>
+                        {{/if}}
                     {{/if}}
                 </td>
                 <td><a class="link" href="{{basePath "/nodes"}}/{{node}}">{{node}}</a></td>

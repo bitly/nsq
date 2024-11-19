@@ -39,6 +39,8 @@ type identifyDataV2 struct {
 	SampleRate          int32  `json:"sample_rate"`
 	UserAgent           string `json:"user_agent"`
 	MsgTimeout          int    `json:"msg_timeout"`
+	TopologyRegion      string `json:"topology_region"`
+	TopologyZone        string `json:"topology_zone"`
 }
 
 type identifyEvent struct {
@@ -46,6 +48,8 @@ type identifyEvent struct {
 	HeartbeatInterval   time.Duration
 	SampleRate          int32
 	MsgTimeout          time.Duration
+	TopologyRegion      string
+	TopologyZone        string
 }
 
 type PubCount struct {
@@ -54,24 +58,29 @@ type PubCount struct {
 }
 
 type ClientV2Stats struct {
-	ClientID        string `json:"client_id"`
-	Hostname        string `json:"hostname"`
-	Version         string `json:"version"`
-	RemoteAddress   string `json:"remote_address"`
-	State           int32  `json:"state"`
-	ReadyCount      int64  `json:"ready_count"`
-	InFlightCount   int64  `json:"in_flight_count"`
-	MessageCount    uint64 `json:"message_count"`
-	FinishCount     uint64 `json:"finish_count"`
-	RequeueCount    uint64 `json:"requeue_count"`
-	ConnectTime     int64  `json:"connect_ts"`
-	SampleRate      int32  `json:"sample_rate"`
-	Deflate         bool   `json:"deflate"`
-	Snappy          bool   `json:"snappy"`
-	UserAgent       string `json:"user_agent"`
-	Authed          bool   `json:"authed,omitempty"`
-	AuthIdentity    string `json:"auth_identity,omitempty"`
-	AuthIdentityURL string `json:"auth_identity_url,omitempty"`
+	ClientID            string `json:"client_id"`
+	Hostname            string `json:"hostname"`
+	Version             string `json:"version"`
+	RemoteAddress       string `json:"remote_address"`
+	State               int32  `json:"state"`
+	ReadyCount          int64  `json:"ready_count"`
+	InFlightCount       int64  `json:"in_flight_count"`
+	MessageCount        uint64 `json:"message_count"`
+	ZoneLocalMsgCount   uint64 `json:"zone_local_msg_count,omitempty"`
+	RegionLocalMsgCount uint64 `json:"region_local_msg_count,omitempty"`
+	GlobalMsgCount      uint64 `json:"global_msg_count,omitempty"`
+	FinishCount         uint64 `json:"finish_count"`
+	RequeueCount        uint64 `json:"requeue_count"`
+	ConnectTime         int64  `json:"connect_ts"`
+	SampleRate          int32  `json:"sample_rate"`
+	Deflate             bool   `json:"deflate"`
+	Snappy              bool   `json:"snappy"`
+	UserAgent           string `json:"user_agent"`
+	Authed              bool   `json:"authed,omitempty"`
+	AuthIdentity        string `json:"auth_identity,omitempty"`
+	AuthIdentityURL     string `json:"auth_identity_url,omitempty"`
+	TopologyZone        string `json:"topology_zone"`
+	TopologyRegion      string `json:"topology_region"`
 
 	PubCounts []PubCount `json:"pub_counts,omitempty"`
 
@@ -122,11 +131,14 @@ func (s ClientV2Stats) String() string {
 
 type clientV2 struct {
 	// 64bit atomic vars need to be first for proper alignment on 32bit platforms
-	ReadyCount    int64
-	InFlightCount int64
-	MessageCount  uint64
-	FinishCount   uint64
-	RequeueCount  uint64
+	ReadyCount          int64
+	InFlightCount       int64
+	MessageCount        uint64
+	ZoneLocalMsgCount   uint64
+	RegionLocalMsgCount uint64
+	GlobalMsgCount      uint64
+	FinishCount         uint64
+	RequeueCount        uint64
 
 	pubCounts map[string]uint64
 
@@ -161,8 +173,10 @@ type clientV2 struct {
 	ReadyStateChan chan int
 	ExitChan       chan int
 
-	ClientID string
-	Hostname string
+	ClientID       string
+	Hostname       string
+	TopologyRegion string
+	TopologyZone   string
 
 	SampleRate int32
 
@@ -244,6 +258,8 @@ func (c *clientV2) Identify(data identifyDataV2) error {
 	c.ClientID = data.ClientID
 	c.Hostname = data.Hostname
 	c.UserAgent = data.UserAgent
+	c.TopologyRegion = data.TopologyRegion
+	c.TopologyZone = data.TopologyZone
 	c.metaLock.Unlock()
 
 	err := c.SetHeartbeatInterval(data.HeartbeatInterval)
@@ -271,6 +287,8 @@ func (c *clientV2) Identify(data identifyDataV2) error {
 		HeartbeatInterval:   c.HeartbeatInterval,
 		SampleRate:          c.SampleRate,
 		MsgTimeout:          c.MsgTimeout,
+		TopologyRegion:      c.TopologyRegion,
+		TopologyZone:        c.TopologyZone,
 	}
 
 	// update the client's message pump
@@ -287,6 +305,8 @@ func (c *clientV2) Stats(topicName string) ClientStats {
 	clientID := c.ClientID
 	hostname := c.Hostname
 	userAgent := c.UserAgent
+	topologyZone := c.TopologyZone
+	topologyRegion := c.TopologyRegion
 	var identity string
 	var identityURL string
 	if c.AuthState != nil {
@@ -306,26 +326,31 @@ func (c *clientV2) Stats(topicName string) ClientStats {
 	}
 	c.metaLock.RUnlock()
 	stats := ClientV2Stats{
-		Version:         "V2",
-		RemoteAddress:   c.RemoteAddr().String(),
-		ClientID:        clientID,
-		Hostname:        hostname,
-		UserAgent:       userAgent,
-		State:           atomic.LoadInt32(&c.State),
-		ReadyCount:      atomic.LoadInt64(&c.ReadyCount),
-		InFlightCount:   atomic.LoadInt64(&c.InFlightCount),
-		MessageCount:    atomic.LoadUint64(&c.MessageCount),
-		FinishCount:     atomic.LoadUint64(&c.FinishCount),
-		RequeueCount:    atomic.LoadUint64(&c.RequeueCount),
-		ConnectTime:     c.ConnectTime.Unix(),
-		SampleRate:      atomic.LoadInt32(&c.SampleRate),
-		TLS:             atomic.LoadInt32(&c.TLS) == 1,
-		Deflate:         atomic.LoadInt32(&c.Deflate) == 1,
-		Snappy:          atomic.LoadInt32(&c.Snappy) == 1,
-		Authed:          c.HasAuthorizations(),
-		AuthIdentity:    identity,
-		AuthIdentityURL: identityURL,
-		PubCounts:       pubCounts,
+		Version:             "V2",
+		RemoteAddress:       c.RemoteAddr().String(),
+		ClientID:            clientID,
+		Hostname:            hostname,
+		UserAgent:           userAgent,
+		State:               atomic.LoadInt32(&c.State),
+		ReadyCount:          atomic.LoadInt64(&c.ReadyCount),
+		InFlightCount:       atomic.LoadInt64(&c.InFlightCount),
+		MessageCount:        atomic.LoadUint64(&c.MessageCount),
+		ZoneLocalMsgCount:   atomic.LoadUint64(&c.ZoneLocalMsgCount),
+		RegionLocalMsgCount: atomic.LoadUint64(&c.RegionLocalMsgCount),
+		GlobalMsgCount:      atomic.LoadUint64(&c.GlobalMsgCount),
+		FinishCount:         atomic.LoadUint64(&c.FinishCount),
+		RequeueCount:        atomic.LoadUint64(&c.RequeueCount),
+		ConnectTime:         c.ConnectTime.Unix(),
+		SampleRate:          atomic.LoadInt32(&c.SampleRate),
+		TLS:                 atomic.LoadInt32(&c.TLS) == 1,
+		Deflate:             atomic.LoadInt32(&c.Deflate) == 1,
+		Snappy:              atomic.LoadInt32(&c.Snappy) == 1,
+		Authed:              c.HasAuthorizations(),
+		AuthIdentity:        identity,
+		AuthIdentityURL:     identityURL,
+		PubCounts:           pubCounts,
+		TopologyZone:        topologyZone,
+		TopologyRegion:      topologyRegion,
 	}
 	if stats.TLS {
 		p := prettyConnectionState{c.tlsConn.ConnectionState()}

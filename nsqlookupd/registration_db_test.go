@@ -12,9 +12,9 @@ import (
 func TestRegistrationDB(t *testing.T) {
 	sec30 := 30 * time.Second
 	beginningOfTime := time.Unix(1348797047, 0)
-	pi1 := &PeerInfo{beginningOfTime.UnixNano(), "1", "remote_addr:1", "host", "b_addr", 1, 2, "v1"}
-	pi2 := &PeerInfo{beginningOfTime.UnixNano(), "2", "remote_addr:2", "host", "b_addr", 2, 3, "v1"}
-	pi3 := &PeerInfo{beginningOfTime.UnixNano(), "3", "remote_addr:3", "host", "b_addr", 3, 4, "v1"}
+	pi1 := &PeerInfo{beginningOfTime.UnixNano(), "1", "remote_addr:1", "host", "b_addr", 1, 2, "v1", "", ""}
+	pi2 := &PeerInfo{beginningOfTime.UnixNano(), "2", "remote_addr:2", "host", "b_addr", 2, 3, "v1", "", ""}
+	pi3 := &PeerInfo{beginningOfTime.UnixNano(), "3", "remote_addr:3", "host", "b_addr", 3, 4, "v1", "", ""}
 	p1 := &Producer{pi1, false, beginningOfTime}
 	p2 := &Producer{pi2, false, beginningOfTime}
 	p3 := &Producer{pi3, false, beginningOfTime}

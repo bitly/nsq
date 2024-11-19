@@ -15,7 +15,8 @@ var ChannelView = BaseView.extend({
     template: require('./spinner.hbs'),
 
     events: {
-        'click .channel-actions button': 'channelAction'
+        'click .channel-actions button': 'channelAction',
+        'click .popup': 'showDeliveryBreakdown'
     },
 
     initialize: function() {
@@ -29,6 +30,13 @@ var ChannelView = BaseView.extend({
             }.bind(this))
             .fail(this.handleViewError.bind(this))
             .always(Pubsub.trigger.bind(Pubsub, 'view:ready'));
+    },
+
+    showDeliveryBreakdown: function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        var popup = document.getElementById($(e.currentTarget).data('id'));
+        popup.classList.toggle("show");
     },
 
     channelAction: function(e) {

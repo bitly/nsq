@@ -208,6 +208,81 @@ func TestMultipleConsumerV2(t *testing.T) {
 	test.Equal(t, uint16(1), msgOut.Attempts)
 }
 
+// TestSameZoneConsumerV2 tests that a published message goes to same-zone consumer first
+// if it's message pump is waiting
+func TestSameZoneConsumerV2(t *testing.T) {
+	opts := NewOptions()
+	opts.Experiments = []string{string(TopologyAwareConsumption)}
+	opts.Logger = test.NewTestLogger(t)
+	opts.ClientTimeout = 60 * time.Second
+	opts.TopologyRegion = "region"
+	opts.TopologyZone = "zone"
+	tcpAddr, _, nsqd := mustStartNSQD(opts)
+	defer os.RemoveAll(opts.DataPath)
+	defer nsqd.Exit()
+
+	topicName := "test_zone_v2" + strconv.Itoa(int(time.Now().Unix()))
+	topic := nsqd.GetTopic(topicName)
+	topic.GetChannel("ch")
+
+	var sameZone, diffZone int64
+	var exiting int32
+	done := make(chan bool, 21)
+	for _, zone := range []string{"zone", "zone", "zone2", "zone2"} {
+		zone := zone
+		conn, err := mustConnectNSQD(tcpAddr)
+		test.Nil(t, err)
+		defer conn.Close()
+
+		identify(t, conn, map[string]interface{}{"topology_zone": zone}, frameTypeResponse)
+		sub(t, conn, topicName, "ch")
+
+		_, err = nsq.Ready(10).WriteTo(conn)
+		test.Nil(t, err)
+
+		go func(c net.Conn, zone string) {
+			for {
+				resp, err := nsq.ReadResponse(c)
+				if atomic.LoadInt32(&exiting) == 1 {
+					return
+				}
+				test.Nil(t, err)
+				_, data, err := nsq.UnpackResponse(resp)
+				test.Nil(t, err)
+				_, err = decodeMessage(data)
+				test.Nil(t, err)
+				if zone == "zone" {
+					atomic.AddInt64(&sameZone, 1)
+				} else {
+					atomic.AddInt64(&diffZone, 1)
+				}
+				done <- true
+			}
+		}(conn, zone)
+	}
+
+	// first 20 messages go to same zone (each has RDY 10)
+	// next message goes to global memoryChan (All consumers)
+	for i := 0; i < 21; i++ {
+		topic.PutMessage(NewMessage(topic.GenerateID(), make([]byte, 100)))
+		if i%2 == 0 {
+			// sleep long enough for messagePump to wait again
+			time.Sleep(time.Millisecond)
+		}
+	}
+	var doneCount int64
+	for range done {
+		doneCount += 1
+		if doneCount == 21 {
+			break
+		}
+	}
+	t.Logf("got same zone %d diffZone %d", sameZone, diffZone)
+	atomic.StoreInt32(&exiting, 1)
+	test.Equal(t, int64(20), sameZone)
+	test.Equal(t, int64(1), diffZone)
+}
+
 func TestClientTimeout(t *testing.T) {
 	topicName := "test_client_timeout_v2" + strconv.Itoa(int(time.Now().Unix()))
 
