@@ -596,12 +596,12 @@ func TestDPUB(t *testing.T) {
 	test.Equal(t, 1, int(atomic.LoadUint64(&ch.messageCount)))
 
 	// duration out of range
-	nsq.DeferredPublish(topicName, opts.MaxReqTimeout+100*time.Millisecond, make([]byte, 100)).WriteTo(conn)
+	nsq.DeferredPublish(topicName, opts.MaxDeferDelay+100*time.Millisecond, make([]byte, 100)).WriteTo(conn)
 	resp, _ = nsq.ReadResponse(conn)
 	frameType, data, _ = nsq.UnpackResponse(resp)
 	t.Logf("frameType: %d, data: %s", frameType, data)
 	test.Equal(t, frameTypeError, frameType)
-	test.Equal(t, "E_INVALID DPUB timeout 3600100 out of range 0-3600000", string(data))
+	test.Equal(t, "E_INVALID DPUB defer delay 3600100 out of range 0-3600000", string(data))
 }
 
 func TestTouch(t *testing.T) {

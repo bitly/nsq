@@ -51,6 +51,7 @@ type Options struct {
 	MaxBodySize   int64         `flag:"max-body-size"`
 	MaxReqTimeout time.Duration `flag:"max-req-timeout"`
 	ClientTimeout time.Duration
+	MaxDeferDelay time.Duration `flag:"max-defer-delay"`
 
 	// client overridable configuration options
 	MaxHeartbeatInterval   time.Duration `flag:"max-heartbeat-interval"`
@@ -133,6 +134,7 @@ func NewOptions() *Options {
 		MaxBodySize:   5 * 1024 * 1024,
 		MaxReqTimeout: 1 * time.Hour,
 		ClientTimeout: 60 * time.Second,
+		MaxDeferDelay: 1 * time.Hour,
 
 		MaxHeartbeatInterval:   60 * time.Second,
 		MaxRdyCount:            2500,

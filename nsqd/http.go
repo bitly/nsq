@@ -241,7 +241,7 @@ func (s *httpServer) doPUB(w http.ResponseWriter, req *http.Request, ps httprout
 			return nil, http_api.Err{400, "INVALID_DEFER"}
 		}
 		deferred = time.Duration(di) * time.Millisecond
-		if deferred < 0 || deferred > s.nsqd.getOpts().MaxReqTimeout {
+		if deferred < 0 || deferred > s.nsqd.getOpts().MaxDeferDelay {
 			return nil, http_api.Err{400, "INVALID_DEFER"}
 		}
 	}

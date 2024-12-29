@@ -878,17 +878,17 @@ func (p *protocolV2) DPUB(client *clientV2, params [][]byte) ([]byte, error) {
 			fmt.Sprintf("DPUB topic name %q is not valid", topicName))
 	}
 
-	timeoutMs, err := protocol.ByteToBase10(params[2])
+	delayMs, err := protocol.ByteToBase10(params[2])
 	if err != nil {
 		return nil, protocol.NewFatalClientErr(err, "E_INVALID",
-			fmt.Sprintf("DPUB could not parse timeout %s", params[2]))
+			fmt.Sprintf("DPUB could not parse defer delay %s", params[2]))
 	}
-	timeoutDuration := time.Duration(timeoutMs) * time.Millisecond
+	delayDuration := time.Duration(delayMs) * time.Millisecond
 
-	if timeoutDuration < 0 || timeoutDuration > p.nsqd.getOpts().MaxReqTimeout {
+	if delayDuration < 0 || delayDuration > p.nsqd.getOpts().MaxDeferDelay {
 		return nil, protocol.NewFatalClientErr(nil, "E_INVALID",
-			fmt.Sprintf("DPUB timeout %d out of range 0-%d",
-				timeoutMs, p.nsqd.getOpts().MaxReqTimeout/time.Millisecond))
+			fmt.Sprintf("DPUB defer delay %d out of range 0-%d",
+				delayMs, p.nsqd.getOpts().MaxDeferDelay/time.Millisecond))
 	}
 
 	bodyLen, err := readLen(client.Reader, client.lenSlice)
@@ -918,7 +918,7 @@ func (p *protocolV2) DPUB(client *clientV2, params [][]byte) ([]byte, error) {
 
 	topic := p.nsqd.GetTopic(topicName)
 	msg := NewMessage(topic.GenerateID(), messageBody)
-	msg.deferred = timeoutDuration
+	msg.deferred = delayDuration
 	err = topic.PutMessage(msg)
 	if err != nil {
 		return nil, protocol.NewFatalClientErr(err, "E_DPUB_FAILED", "DPUB failed "+err.Error())
