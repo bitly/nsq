@@ -302,7 +302,6 @@ func (c *clientV2) Stats(topicName string) ClientStats {
 			Topic: topic,
 			Count: count,
 		})
-		break
 	}
 	c.metaLock.RUnlock()
 	stats := ClientV2Stats{
